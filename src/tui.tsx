@@ -348,57 +348,48 @@ function ActivityPanel(props: {
       backgroundColor={props.theme.backgroundPanel}
       paddingLeft={1}
       paddingRight={1}
-      paddingTop={1}
-      paddingBottom={1}
-      gap={1}
+      paddingTop={0}
+      paddingBottom={0}
     >
-      <box flexDirection="column" border borderColor={props.theme.border} paddingLeft={1} paddingRight={1} paddingTop={1} paddingBottom={1} flexShrink={0}>
-        <text fg={props.theme.primary}>Activity Summary</text>
-        <text fg={props.theme.textMuted}>← native · summary page · →</text>
-      </box>
-
-      <SummaryBlock title="当前动作" view={props.micro} theme={props.theme} flexGrow={0} />
-      <SummaryBlock title="全局进展" view={props.macro} theme={props.theme} flexGrow={1} />
-
-      <box flexDirection="column" border borderColor={props.theme.border} paddingLeft={1} paddingRight={1} paddingTop={1} paddingBottom={1} flexShrink={0}>
-        <text fg={props.theme.textMuted}>最近事件</text>
-        {recent().length === 0 ? <text fg={props.theme.textMuted}>暂无事件</text> : null}
-        {recent().map((item) => (
-          <text fg={props.theme.textMuted}>• {truncate(`${item.kind}: ${item.text}`, 70)}</text>
-        ))}
-      </box>
+      <text fg={props.theme.primary}>Activity Summary</text>
+      <Divider theme={props.theme} />
+      <SummaryBlock title="当前动作" view={props.micro} theme={props.theme} />
+      <Divider theme={props.theme} />
+      <SummaryBlock title="全局进展" view={props.macro} theme={props.theme} />
+      <Divider theme={props.theme} />
+      <RecentEventsBlock events={recent()} theme={props.theme} />
     </box>
   )
+}
+
+function Divider(props: { theme: SummaryTheme }) {
+  return <box height={1} flexShrink={0} border={["top"]} borderColor={props.theme.border} />
 }
 
 function SummaryBlock(props: {
   title: string
   view: LaneView
   theme: SummaryTheme
-  flexGrow: number
 }) {
   const color = () => (props.view.status === "error" ? props.theme.error : props.view.status === "loading" ? props.theme.warning : props.theme.text)
-  const footer = () =>
-    [props.view.source, props.view.updatedAt ? new Date(props.view.updatedAt).toLocaleTimeString() : undefined]
-      .filter(isNonEmptyString)
-      .join(" · ")
   return (
-    <box
-      flexDirection="column"
-      border
-      borderColor={props.theme.border}
-      paddingLeft={1}
-      paddingRight={1}
-      paddingTop={1}
-      paddingBottom={1}
-      flexGrow={props.flexGrow}
-      flexShrink={0}
-    >
+    <box flexDirection="column" flexShrink={0}>
       <text fg={props.theme.primary}>{props.title}</text>
       {splitLines(props.view.text).map((line) => (
         <text fg={color()}>{line}</text>
       ))}
-      {footer() ? <text fg={props.theme.textMuted}>{footer()}</text> : null}
+    </box>
+  )
+}
+
+function RecentEventsBlock(props: { events: ActivityEvent[]; theme: SummaryTheme }) {
+  return (
+    <box flexDirection="column" flexShrink={0}>
+      <text fg={props.theme.primary}>最近事件</text>
+      {props.events.length === 0 ? <text fg={props.theme.textMuted}>暂无事件</text> : null}
+      {props.events.map((item) => (
+        <text fg={props.theme.textMuted}>• {truncate(`${item.kind}: ${item.text}`, 70)}</text>
+      ))}
     </box>
   )
 }
@@ -798,7 +789,7 @@ function truncateMiddle(value: string, maxLength: number): string {
 }
 
 function splitLines(value: string): string[] {
-  return value.split(/\r?\n/).flatMap((line) => wrapLine(line, 72)).slice(0, 12)
+  return value.split(/\r?\n/).flatMap((line) => wrapLine(line, 42))
 }
 
 function wrapLine(value: string, width: number): string[] {
