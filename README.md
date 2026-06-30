@@ -1,6 +1,13 @@
 # opencode-activity-summary
 
-OpenCode TUI sidebar plugin that explains what the agent is doing.
+OpenCode TUI sidebar plugin that explains what the agent is doing without permanently adding extra vertical content to the default sidebar.
+
+## Sidebar paging
+
+- The default sidebar remains OpenCode's native context/MCP/LSP/todo/files view.
+- Press `Right` to switch the sidebar to the Activity Summary page.
+- Press `Left` to switch back to the native sidebar.
+- Commands are also available as `/activity-summary` and `/sidebar-native`.
 
 ## Lanes
 
@@ -29,6 +36,10 @@ Use `~/.config/opencode/tui.json`:
           "model": "$model",
           "variant": "high",
           "intervalMs": 30000
+        },
+        "keybinds": {
+          "showSummary": "right",
+          "showNative": "left"
         }
       }
     ]
