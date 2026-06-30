@@ -49,6 +49,10 @@ type PluginOptions = {
   macro: MacroOptions
   sidebarOrder: number
   recentEventLimit: number
+  keybinds: {
+    showSummary: string
+    showNative: string
+  }
 }
 
 type ResolvedChatModel = {
@@ -70,6 +74,10 @@ type ExtendedRequestInit = RequestInit & {
 const defaultOptions: PluginOptions = {
   sidebarOrder: 600,
   recentEventLimit: 16,
+  keybinds: {
+    showSummary: "right",
+    showNative: "left",
+  },
   micro: {
     enabled: true,
     baseURL: undefined,
@@ -111,6 +119,7 @@ const tui: TuiPlugin = async (api, rawOptions) => {
   })
   const [events, setEvents] = createSignal<ActivityEvent[]>([])
   const [lastStatus, setLastStatus] = createSignal("unknown")
+  const [sidebarPage, setSidebarPage] = createSignal<"native" | "summary">("native")
 
   let microTimer: ReturnType<typeof setTimeout> | undefined
   let microInFlight = false
@@ -255,6 +264,7 @@ const tui: TuiPlugin = async (api, rawOptions) => {
     order: options.sidebarOrder,
     slots: {
       sidebar_content(ctx, value) {
+        if (sidebarPage() !== "summary") return null
         return (
           <ActivityPanel
             sessionID={value.session_id}
@@ -270,11 +280,33 @@ const tui: TuiPlugin = async (api, rawOptions) => {
     },
   })
 
+  const unregisterCommands = api.command.register(() => [
+    {
+      title: "Show activity summary sidebar",
+      value: "activity-summary.show",
+      description: "Switch the sidebar to the activity summary page",
+      category: "Plugin",
+      keybind: options.keybinds.showSummary,
+      slash: { name: "activity-summary" },
+      onSelect: () => setSidebarPage("summary"),
+    },
+    {
+      title: "Show native sidebar",
+      value: "activity-summary.native",
+      description: "Switch the sidebar back to OpenCode native context, MCP, LSP, todo, and file panels",
+      category: "Plugin",
+      keybind: options.keybinds.showNative,
+      slash: { name: "sidebar-native" },
+      onSelect: () => setSidebarPage("native"),
+    },
+  ])
+
   api.lifecycle.onDispose(() => {
     if (microTimer) clearTimeout(microTimer)
     unsubscribePartUpdated()
     unsubscribeSessionStatus()
     unsubscribeSessionIdle()
+    unregisterCommands()
   })
 }
 
@@ -300,16 +332,32 @@ function ActivityPanel(props: {
   })
 
   return (
-    <box flexDirection="column" paddingLeft={1} paddingRight={1} marginTop={1} gap={1}>
-      <box flexDirection="column" border borderColor={props.theme.border} paddingLeft={1} paddingRight={1} paddingTop={1} paddingBottom={1}>
+    <box
+      position="absolute"
+      zIndex={1200}
+      top={0}
+      bottom={0}
+      left={0}
+      right={0}
+      height="100%"
+      width="100%"
+      flexDirection="column"
+      backgroundColor={props.theme.backgroundPanel}
+      paddingLeft={1}
+      paddingRight={1}
+      paddingTop={1}
+      paddingBottom={1}
+      gap={1}
+    >
+      <box flexDirection="column" border borderColor={props.theme.border} paddingLeft={1} paddingRight={1} paddingTop={1} paddingBottom={1} flexShrink={0}>
         <text fg={props.theme.primary}>Activity Summary</text>
-        <text fg={props.theme.textMuted}>micro: current action · macro: 30s context</text>
+        <text fg={props.theme.textMuted}>← native · summary page · →</text>
       </box>
 
-      <SummaryBlock title="当前动作" view={props.micro} theme={props.theme} />
-      <SummaryBlock title="全局进展" view={props.macro} theme={props.theme} />
+      <SummaryBlock title="当前动作" view={props.micro} theme={props.theme} flexGrow={0} />
+      <SummaryBlock title="全局进展" view={props.macro} theme={props.theme} flexGrow={1} />
 
-      <box flexDirection="column" border borderColor={props.theme.border} paddingLeft={1} paddingRight={1} paddingTop={1} paddingBottom={1}>
+      <box flexDirection="column" border borderColor={props.theme.border} paddingLeft={1} paddingRight={1} paddingTop={1} paddingBottom={1} flexShrink={0}>
         <text fg={props.theme.textMuted}>最近事件</text>
         {recent().length === 0 ? <text fg={props.theme.textMuted}>暂无事件</text> : null}
         {recent().map((item) => (
@@ -324,6 +372,7 @@ function SummaryBlock(props: {
   title: string
   view: LaneView
   theme: SummaryTheme
+  flexGrow: number
 }) {
   const color = () => (props.view.status === "error" ? props.theme.error : props.view.status === "loading" ? props.theme.warning : props.theme.text)
   const footer = () =>
@@ -331,7 +380,17 @@ function SummaryBlock(props: {
       .filter(isNonEmptyString)
       .join(" · ")
   return (
-    <box flexDirection="column" border borderColor={props.theme.border} paddingLeft={1} paddingRight={1} paddingTop={1} paddingBottom={1}>
+    <box
+      flexDirection="column"
+      border
+      borderColor={props.theme.border}
+      paddingLeft={1}
+      paddingRight={1}
+      paddingTop={1}
+      paddingBottom={1}
+      flexGrow={props.flexGrow}
+      flexShrink={0}
+    >
       <text fg={props.theme.primary}>{props.title}</text>
       {splitLines(props.view.text).map((line) => (
         <text fg={color()}>{line}</text>
@@ -364,8 +423,17 @@ function parseOptions(raw: unknown): PluginOptions {
   return {
     sidebarOrder: numberOption(root.sidebarOrder, defaultOptions.sidebarOrder),
     recentEventLimit: numberOption(root.recentEventLimit, defaultOptions.recentEventLimit),
+    keybinds: parseKeybindOptions(root.keybinds),
     micro: parseMicroOptions(root.micro),
     macro: parseMacroOptions(root.macro),
+  }
+}
+
+function parseKeybindOptions(raw: unknown): PluginOptions["keybinds"] {
+  const input = asRecord(raw)
+  return {
+    showSummary: stringOption(input.showSummary, defaultOptions.keybinds.showSummary) ?? defaultOptions.keybinds.showSummary,
+    showNative: stringOption(input.showNative, defaultOptions.keybinds.showNative) ?? defaultOptions.keybinds.showNative,
   }
 }
 
