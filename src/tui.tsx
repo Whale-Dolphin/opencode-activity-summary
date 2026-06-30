@@ -27,6 +27,7 @@ type DirectModelOptions = {
   model: string | undefined
   variant: string | undefined
   allowInsecureTLS: boolean
+  bodyOptions: Record<string, unknown>
   maxOutputTokens: number
   timeoutMs: number
 }
@@ -86,6 +87,7 @@ const defaultOptions: PluginOptions = {
     apiKeyEnv: "OPENCODE_ACTIVITY_SUMMARY_JUDGE_KEY",
     variant: undefined,
     allowInsecureTLS: false,
+    bodyOptions: {},
     maxOutputTokens: 120,
     timeoutMs: 20_000,
     debounceMs: 900,
@@ -99,6 +101,7 @@ const defaultOptions: PluginOptions = {
     model: "$model",
     variant: "high",
     allowInsecureTLS: false,
+    bodyOptions: {},
     maxOutputTokens: 360,
     timeoutMs: 45_000,
     intervalMs: 30_000,
@@ -447,6 +450,7 @@ function parseMicroOptions(raw: unknown): MicroOptions {
     model: stringOption(input.model, defaultOptions.micro.model),
     variant: stringOption(input.variant, defaultOptions.micro.variant),
     allowInsecureTLS: booleanOption(input.allowInsecureTLS, defaultOptions.micro.allowInsecureTLS),
+    bodyOptions: asRecord(input.bodyOptions),
     maxOutputTokens: numberOption(input.maxOutputTokens, defaultOptions.micro.maxOutputTokens),
     timeoutMs: numberOption(input.timeoutMs, defaultOptions.micro.timeoutMs),
     debounceMs: numberOption(input.debounceMs, defaultOptions.micro.debounceMs),
@@ -464,6 +468,7 @@ function parseMacroOptions(raw: unknown): MacroOptions {
     model: stringOption(input.model, defaultOptions.macro.model),
     variant: stringOption(input.variant, defaultOptions.macro.variant),
     allowInsecureTLS: booleanOption(input.allowInsecureTLS, defaultOptions.macro.allowInsecureTLS),
+    bodyOptions: asRecord(input.bodyOptions),
     maxOutputTokens: numberOption(input.maxOutputTokens, defaultOptions.macro.maxOutputTokens),
     timeoutMs: numberOption(input.timeoutMs, defaultOptions.macro.timeoutMs),
     intervalMs: numberOption(input.intervalMs, defaultOptions.macro.intervalMs),
@@ -487,7 +492,7 @@ function resolveDirectModel(lane: DirectModelOptions, label: string): ResolvedCh
     baseURL: lane.baseURL,
     model: lane.model,
     apiKey,
-    bodyOptions: {},
+    bodyOptions: lane.bodyOptions,
     label: `${label}:${lane.model}`,
     timeoutMs: lane.timeoutMs,
     allowInsecureTLS: lane.allowInsecureTLS,
@@ -580,6 +585,11 @@ async function requestChatCompletion(
     }
     const parsed: unknown = payload ? JSON.parse(payload) : {}
     const content = extractAssistantContent(parsed)
+    if (!content && hasReasoningOnlyContent(parsed)) {
+      throw new Error(
+        "Model response only contained reasoning, not assistant content. Disable thinking for this model; for Qwen-compatible servers set bodyOptions.enable_thinking=false or bodyOptions.chat_template_kwargs.enable_thinking=false.",
+      )
+    }
     if (!content) throw new Error("Model response did not contain assistant content")
     return content.trim()
   } finally {
@@ -616,6 +626,26 @@ function extractAssistantContent(payload: unknown): string | undefined {
   }
   const text = choice.text
   return typeof text === "string" ? text : undefined
+}
+
+function hasReasoningOnlyContent(payload: unknown): boolean {
+  const root = asRecord(payload)
+  const choices = Array.isArray(root.choices) ? root.choices : []
+  const first = choices[0]
+  const choice = asRecord(first)
+  const message = asRecord(choice.message)
+  const reasoning = stringValue(message.reasoning) ?? stringValue(message.reasoning_content)
+  if (!reasoning) return false
+  const content = message.content
+  if (typeof content === "string" && content.trim().length > 0) return false
+  if (Array.isArray(content)) {
+    return content.every((item) => {
+      const record = asRecord(item)
+      const text = stringValue(record.text) ?? stringValue(record.content)
+      return !text || text.trim().length === 0
+    })
+  }
+  return true
 }
 
 function buildSessionContext(api: TuiPluginApi, sessionID: string, maxMessages: number, maxChars: number): string {

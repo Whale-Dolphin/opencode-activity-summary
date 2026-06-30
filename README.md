@@ -30,7 +30,13 @@ Use `~/.config/opencode/tui.json`:
         "micro": {
           "baseURL": "https://your-openai-compatible-host/v1",
           "model": "your-small-summary-model",
-          "apiKeyEnv": "OPENCODE_ACTIVITY_SUMMARY_JUDGE_KEY"
+          "apiKeyEnv": "OPENCODE_ACTIVITY_SUMMARY_JUDGE_KEY",
+          "bodyOptions": {
+            "enable_thinking": false,
+            "chat_template_kwargs": {
+              "enable_thinking": false
+            }
+          }
         },
         "macro": {
           "model": "$model",
@@ -50,3 +56,5 @@ Use `~/.config/opencode/tui.json`:
 Do not commit real API keys. Prefer `apiKeyEnv` for shared configs.
 
 `micro.baseURL` and `macro.baseURL` must point to an OpenAI-compatible Chat Completions endpoint. The plugin deliberately has no remote endpoint enabled by default.
+
+Use `bodyOptions` for provider-specific Chat Completions fields. For Qwen/Qwen3-compatible judge models, disabling thinking prevents reasoning-only responses where `message.content` is empty and the answer never reaches the sidebar.
