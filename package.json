@@ -1,0 +1,30 @@
+{
+  "name": "opencode-activity-summary",
+  "version": "0.1.0",
+  "description": "OpenCode TUI sidebar activity summary plugin.",
+  "type": "module",
+  "private": true,
+  "exports": {
+    "./tui": {
+      "import": "./dist/tui.js",
+      "types": "./dist/tui.d.ts"
+    }
+  },
+  "scripts": {
+    "build": "bun ./scripts/build.ts && tsc -p tsconfig.json --emitDeclarationOnly",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "engines": {
+    "opencode": ">=1.16.0"
+  },
+  "dependencies": {
+    "@opencode-ai/plugin": "1.4.6",
+    "@opentui/core": "0.1.99",
+    "@opentui/solid": "0.1.99",
+    "solid-js": "1.9.11"
+  },
+  "devDependencies": {
+    "@types/node": "22.13.9",
+    "typescript": "5.8.2"
+  }
+}
