@@ -76,8 +76,8 @@ const defaultOptions: PluginOptions = {
   sidebarOrder: 600,
   recentEventLimit: 16,
   keybinds: {
-    showSummary: "right",
-    showNative: "left",
+    showSummary: "ctrl+shift+s",
+    showNative: "ctrl+shift+n",
   },
   micro: {
     enabled: true,
